@@ -40,6 +40,6 @@ jobs:
           $SSHCMD 'set -e
             cd /srv/cvm/testbox
             (id -nG | grep -qw docker) && DOCKER=docker || DOCKER="sudo -n docker"
-            $DOCKER build -q -t acreetboot-testbox .
+            $DOCKER build -q -t acreetboot-testbox -f Dockerfile.testbox .
             $DOCKER run --rm acreetboot-testbox | tee smoke.log
             exit ${PIPESTATUS[0]}'
