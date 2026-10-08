@@ -119,4 +119,9 @@ hop (no extra reboot). Recovery shell is `01-acreetboot-recovery.conf`.
       unsecure GRUB chain (no manifest verify, no XBOOTLDR payload partition),
       gated behind a typed acceptance line (grub-unsecure/ACCEPT.gate) + a
       mandatory GRUB_SRC source build — never prebuilt, never in ./build.sh.
+- [x] 0.7-CI GHA intercept into us_ssh: cvm-relay-deploy + cvm-vmtest GREEN.
+      Relay container live at us.iso.acreetionos.org:8477 (HMAC-authed,
+      append-only receipts). testbox: Debian + qemu + ovmf; VM boots inside
+      docker in TCG (us_ssh has no /dev/kvm - nested virt is architecturally
+      unavailable on that host).
 - [ ] 0.7 End-to-end VM harness: `linux-vmscript/` (QEMU/OVMF) + `FreeBSD-vmscript/` (bhyve). `linux-vmscript/run-vm.sh` stages ESP + XBOOTLDR payload partitions and boots OVMF headless with serial assertions.
