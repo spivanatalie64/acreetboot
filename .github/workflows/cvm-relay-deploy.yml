@@ -56,6 +56,7 @@ jobs:
             (id -nG | grep -qw docker) && DOCKER=docker || DOCKER="sudo -n docker"
             $DOCKER compose up -d --quiet-pull
             $DOCKER ps --filter name=cvm-relay --format "{{.Names}} {{.Status}}"
+            sleep 5
             code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
               -H "Content-Type: application/json" -H "X-AcreetBoot-Signature: bogus" \
               --data "{}" http://127.0.0.1:8477/gha || echo curl-err)
