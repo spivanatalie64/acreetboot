@@ -50,7 +50,7 @@ jobs:
           RSYNC="-az -e ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT"
           $SSHCMD 'mkdir -p /srv/cvm/relay'
           rsync -az -e "ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT" linux-vmscript/relay/ "$USER@$HOST:/srv/cvm/relay/"
-          printf '%s' "$SECRET" | $SSHCMD 'umask 077; cat > /srv/cvm/relay/.env
+          printf '%s' "$SECRET" | $SSHCMD 'umask 077; printf "CVM_RELAY_SECRET=%s\n" "$(cat)" > /srv/cvm/relay/.env
             chmod 600 /srv/cvm/relay/.env
             cd /srv/cvm/relay
             (id -nG | grep -qw docker) && DOCKER=docker || DOCKER="sudo -n docker"
