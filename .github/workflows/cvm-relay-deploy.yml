@@ -32,6 +32,7 @@ jobs:
       - name: Push relay into /srv/cvm & start
         env:
           SSHPASS: ${{ secrets.COOCOO }}
+          SECRET: ${{ secrets.CVM_RELAY_SECRET }}
         run: |
           PORT="${US_SERVER_ADDRESS_PORT%%[[:space:]]*}"
           HOST="${US_SERVER_ADDRESS%%[[:space:]]*}"
