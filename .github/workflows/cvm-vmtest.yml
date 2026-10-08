@@ -26,13 +26,13 @@ jobs:
           echo "PORT=$(printf '%s' "$US_SERVER_ADDRESS_PORT" | tr -d '[:space:]')" >> "$GITHUB_ENV"
           echo "HOST=$(printf '%s' "$US_SERVER_ADDRESS" | tr -d '[:space:]')" >> "$GITHUB_ENV"
           echo "SSHCMD=ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $(printf '%s' "$US_SERVER_ADDRESS_PORT" | tr -d '[:space:]') burrito@$(printf '%s' "$US_SERVER_ADDRESS" | tr -d '[:space:]')" >> "$GITHUB_ENV"
-      - run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass rsync
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq rsync
       - name: Stage testbox on us_ssh and run container VM smoke
         run: |
           PORT="${US_SERVER_ADDRESS_PORT%%[[:space:]]*}"
           HOST="${US_SERVER_ADDRESS%%[[:space:]]*}"
           USER="${BURRITO%%[[:space:]]*}"
-          SSHCMD="sshpass -e ssh -o StrictHostKeyChecking=accept-new -p $PORT $USER@$HOST"
+          SSHCMD="ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT burrito@$HOST"
           $SSHCMD 'mkdir -p /srv/cvm/testbox'
           rsync -az -e "ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT" \
             linux-vmscript/Dockerfile.testbox linux-vmscript/testbox-smoke.sh \
