@@ -1,0 +1,11 @@
+# AcreetBoot VM testbox: boots test disks with OVMF inside the container
+# SPDX-License-Identifier: BSD-3-Clause
+FROM debian:12-slim
+RUN apt-get update -qq && apt-get install -y -qq \
+      --no-install-recommends qemu-system-x86 ovmf systemd bash kpartx \
+      cgpt 2>/dev/null || \
+    apt-get update -qq && apt-get install -y -qq \
+      --no-install-recommends qemu-system-x86 ovmf systemd bash
+WORKDIR /work
+COPY testbox-smoke.sh /work/testbox-smoke.sh
+ENTRYPOINT ["bash", "/work/testbox-smoke.sh"]

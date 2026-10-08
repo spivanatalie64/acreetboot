@@ -1,0 +1,33 @@
+# AcreetBoot — VM-in-docker boot test on us_ssh (invoked via GHA intercept)
+# SPDX-License-Identifier: BSD-3-Clause
+name: cvm-vmtest
+on:
+  workflow_dispatch:
+
+jobs:
+  vm-smoke:
+    runs-on: ubuntu-latest
+    env:
+      BURRITO: ${{ secrets.BURRITO }}
+      COOCOO: ${{ secrets.COOCOO }}
+      US_SERVER_ADDRESS: ${{ secrets.US_SERVER_ADDRESS }}
+      US_SERVER_ADDRESS_PORT: ${{ secrets.US_SERVER_ADDRESS_PORT }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass rsync
+      - name: Stage testbox on us_ssh and run container VM smoke
+        run: |
+          export SSHPASS="$COOCOO"
+          RS="sshpass -e ssh -p \"$US_SERVER_ADDRESS_PORT\""
+          sshpass -e ssh -p "$US_SERVER_ADDRESS_PORT" "$BURRITO@$US_SERVER_ADDRESS" 'mkdir -p /srv/cvm/testbox'
+          rsync -az -e "sshpass -e ssh -p \"$US_SERVER_ADDRESS_PORT\"" \
+            linux-vmscript/Dockerfile.testbox linux-vmscript/testbox-smoke.sh \
+            "$BURRITO@$US_SERVER_ADDRESS:/srv/cvm/testbox/"
+          sshpass -e ssh -p "$US_SERVER_ADDRESS_PORT" "$BURRITO@$US_SERVER_ADDRESS" '
+            set -e
+            cd /srv/cvm/testbox
+            (id -nG | grep -qw docker) && DOCKER=docker || DOCKER="sudo -n docker"
+            $DOCKER build -q -t acreetboot-testbox .
+            $DOCKER run --rm acreetboot-testbox | tee smoke.log
+            exit ${PIPESTATUS[0]}
+            '

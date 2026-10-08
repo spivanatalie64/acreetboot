@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: BSD-3-Clause
+# .env (chmod 600) supplies: CVM_RELAY_SECRET
+services:
+  cvm-relay:
+    build: .
+    container_name: cvm-relay
+    env_file: .env
+    environment:
+      CVM_PORT: "8477"
+      CVM_RECEIPTS: /data/receipts.jsonl
+    ports:
+      - "8477:8477"
+    volumes:
+      - ./receipts:/data
+    restart: unless-stopped
