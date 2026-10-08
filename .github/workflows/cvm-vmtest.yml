@@ -41,5 +41,8 @@ jobs:
             cd /srv/cvm/testbox
             (id -nG | grep -qw docker) && DOCKER=docker || DOCKER="sudo -n docker"
             $DOCKER build -q -t acreetboot-testbox -f Dockerfile.testbox .
-            $DOCKER run --rm acreetboot-testbox | tee smoke.log
+            # losetup/mount inside the testbox require privileged; the VM
+            # itself runs TCG (us_ssh has no /dev/kvm — see plan doc).
+            $DOCKER run --rm --privileged acreetboot-testbox | tee smoke.log
+            exit ${PIPESTATUS[0]}
             exit ${PIPESTATUS[0]}'
