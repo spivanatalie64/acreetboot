@@ -112,4 +112,11 @@ hop (no extra reboot). Recovery shell is `01-acreetboot-recovery.conf`.
 - [ ] 0.4 Microboot stage (config, kernel config, init, BootNext C tool).
 - [ ] 0.5 Manifest sealing (MAC/sign-key) + XBOOTLDR partition tooling.
 - [ ] 0.6 acreetbootctl CLI (`install`/`uninstall` wiring all of the above).
+- [ ] 0.6.5 Alternative hops (TRL today, config-shape documented):
+      a) UKI+Secure Boot path (removes microboot hop entirely, needs MOK enrollment infra);
+      b) Linux-only kexec chain (microboot kexec's straight to user kernel — no EFI app, no extra reboot);
+      c) grub-unsecure/ BYO-COMPILE variant for specialized hardware: explicit
+      unsecure GRUB chain (no manifest verify, no XBOOTLDR payload partition),
+      gated behind a typed acceptance line (grub-unsecure/ACCEPT.gate) + a
+      mandatory GRUB_SRC source build — never prebuilt, never in ./build.sh.
 - [ ] 0.7 End-to-end VM harness: `linux-vmscript/` (QEMU/OVMF) + `FreeBSD-vmscript/` (bhyve). `linux-vmscript/run-vm.sh` stages ESP + XBOOTLDR payload partitions and boots OVMF headless with serial assertions.

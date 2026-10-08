@@ -1,0 +1,23 @@
+# AcreetBoot GRUB — UNSECURE BYO variant (specialized hardware / experimenters)
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2026 Natalie Cole-Clift Spiva / AcreetionOS.
+#
+# Replaces the microboot hop with a direct two-stage chainload:
+#   firmware -> GRUB -> systemd-boot -> AcreetBootMainMenu.efi -> chosen OS
+# No manifest verification happens anywhere in this chain. You compiled
+# this yourself; the build-core.sh GATE proves you typed it in.
+
+set default=0
+set timeout=2
+set pager=1
+
+menuentry "AcreetBoot UNSECURE (direct chain)" --class acreetboot-unsecure {
+    search --no-floppy --file /EFI/acreetboot/systemd-bootx64.efi --set=esproot
+    chainloader (${esproot})/EFI/acreetboot/systemd-bootx64.efi
+    boot
+}
+menuentry "AcreetBoot UNSECURE (chain straight to the main menu .efi)" --class acreetboot-unsecure {
+    search --no-floppy --file /EFI/acreetboot/AcreetBootMainMenu.efi --set=esproot
+    chainloader (${esproot})/EFI/acreetboot/AcreetBootMainMenu.efi
+    boot
+}

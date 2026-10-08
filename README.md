@@ -83,7 +83,9 @@ inside the microboot with `acreetboot.recover=1`.
 - `docs/` — `plan/00-PLAN.md` (plan, licensing, hardening model, milestones)
   and `sprint/` logs.
 - `linux-vmscript/` — QEMU/OVMF test harness (Linux side of the VM matrix).
-- `FreeBSD-vmscript/` — bhyve test harness.
+- `grub-unsecure/` — BYO-compiled UNSECURE GRUB variant (specialized
+  hardware): skipped by `./build.sh`, gated behind an explicit acceptance
+  edit (grub-unsecure/ACCEPT.gate) + a `GRUB_SRC` source build.
 
 ## Build
 
