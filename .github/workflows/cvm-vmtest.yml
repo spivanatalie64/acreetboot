@@ -45,6 +45,8 @@ jobs:
             $DOCKER build -q -t acreetboot-testbox -f Dockerfile.testbox .
             # losetup/mount inside the testbox require privileged; the VM
             # itself runs TCG (us_ssh has no /dev/kvm — see plan doc).
-            $DOCKER run --rm --privileged acreetboot-testbox | tee smoke.log
+            $DOCKER run --rm --privileged \
+              -v /srv/cvm/testbox/sdboot:/work/sdboot:ro \
+              acreetboot-testbox | tee smoke.log
             exit ${PIPESTATUS[0]}
             exit ${PIPESTATUS[0]}'
