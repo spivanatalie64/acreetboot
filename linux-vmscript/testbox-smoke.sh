@@ -17,7 +17,6 @@ mkfs.vfat -n ACREETBOOT -F32 "$ESP"
 mkfs.ext4 -q -L ACREETBOOT-ZSWAP -F "$PAY"
 
 # Stage the sd-boot config + loader (mtools: no mount required).
-MTOOLS_SKIP_CHECK=1 mformat -C -i "$ESP" :: 2>/dev/null || mformat -i "$ESP"
 mmd -i "$ESP" ::/loader ::/loader/entries ::/EFI ::/EFI/acreetboot
 mcopy -i "$ESP" sdboot/loader.conf ::/loader/
 mcopy -i "$ESP" sdboot/*.conf ::/loader/entries/
