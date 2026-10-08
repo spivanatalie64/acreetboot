@@ -13,7 +13,7 @@ SSZ=512; ESP_SECT=131072; PAY_SECT=131072; ESP_START=2048; PAY_START=$((ESP_STAR
 rm -f "$IMG" "$ESP" "$PAY"
 truncate -s 196M "$IMG"
 truncate -s 64M "$ESP"; truncate -s 64M "$PAY"
-mkfs.vfat -n ACREETBOOT-ESP -F32 "$ESP"
+mkfs.vfat -n ACREETBOOT -F32 "$ESP"
 mkfs.ext4 -q -L ACREETBOOT-ZSWAP -F "$PAY"
 
 # Stage the sd-boot config + loader (mtools: no mount required).
