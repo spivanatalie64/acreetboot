@@ -7,7 +7,7 @@ BINARY="${1:-$here/../build/bin/setbootnext}"
 pass=0; fail=0
 cd "$here"
 for t in test_*.sh; do
-  if "ACREETBOOT_TEST_BIN=${BINARY}" bash "$t"; then pass=$((pass+1)); echo "PASS $t";
+  if ACREETBOOT_TEST_BIN="$BINARY" bash "$t"; then pass=$((pass+1)); echo "PASS $t";
   else fail=$((fail+1)); echo "FAIL $t"; fi
 done
 echo "$pass passed, $fail failed"
