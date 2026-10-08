@@ -15,36 +15,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install sshpass + rsync
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass rsync jq
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass rsync
 
-      - name: Relay reachable-as-check (us_ssh)
+      - name: Relay reachable as burrito (us_ssh)
+        env:
+          SSHPASS: ${{ secrets.COOCOO }}
         run: |
-          export SSHPASS="$COOCOO"
-          sshpass -e ssh -o StrictHostKeyChecking=accept-new -p "$US_SERVER_ADDRESS_PORT" \
-            "$BURRITO@$US_SERVER_ADDRESS" '
-            set -e
+          PORT="${US_SERVER_ADDRESS_PORT%%[[:space:]]*}"
+          HOST="${US_SERVER_ADDRESS%%[[:space:]]*}"
+          USER="${BURRITO%%[[:space:]]*}"
+          sshpass -e ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'set -e
             echo "connected: $(whoami)@$(hostname)"
             docker --version
-            (id -nG | grep -qw docker) && echo "docker group: yes" || echo "docker group: NO (fall back to sudo -n)"
-            '
+            (id -nG | grep -qw docker) && echo "docker group: yes" || echo "docker group: NO (fall back to sudo -n)"'
+
       - name: Push relay into /srv/cvm & start
+        env:
+          SSHPASS: ${{ secrets.COOCOO }}
         run: |
-          export SSHPASS="$COOCOO"
-          export SSHPASS_DIR=relay
-          sshpass -e ssh -p "$US_SERVER_ADDRESS_PORT" "$BURRITO@$US_SERVER_ADDRESS" 'mkdir -p /srv/cvm/relay'
-          rsync -az -e "sshpass -e ssh -p \"$US_SERVER_ADDRESS_PORT\"" \
-            linux-vmscript/relay/ "$BURRITO@$US_SERVER_ADDRESS:/srv/cvm/relay/"
-          sshpass -e ssh -p "$US_SERVER_ADDRESS_PORT" "$BURRITO@$US_SERVER_ADDRESS" '
-            set -e
+          PORT="${US_SERVER_ADDRESS_PORT%%[[:space:]]*}"
+          HOST="${US_SERVER_ADDRESS%%[[:space:]]*}"
+          USER="${BURRITO%%[[:space:]]*}"
+          SSHCMD="sshpass -e ssh -o StrictHostKeyChecking=accept-new -p $PORT $USER@$HOST"
+          RSYNC="-az -e sshpass -e ssh -p $PORT"
+          $SSHCMD 'mkdir -p /srv/cvm/relay'
+          rsync -az -e "sshpass -e ssh -p $PORT" linux-vmscript/relay/ "$USER@$HOST:/srv/cvm/relay/"
+          $SSHCMD 'set -e
             cd /srv/cvm/relay
-            if [ ! -z "$SECRET" ]; then printf "CVM_RELAY_SECRET=%s\n" "$SECRET" > .env; chmod 600 .env; fi
+            if [ -n "$SECRET" ]; then printf "CVM_RELAY_SECRET=%s\n" "$SECRET" > .env; chmod 600 .env; fi
             (id -nG | grep -qw docker) && DOCKER=docker || DOCKER="sudo -n docker"
             $DOCKER compose up -d --quiet-pull
             $DOCKER ps --filter name=cvm-relay --format "{{.Names}} {{.Status}}"
-            curl -fsS -o /dev/null http://127.0.0.1:8477/gha -X POST \
-                 -H "Content-Type: application/json" \
-                 -H "X-AcreetBoot-Signature: BADSIG" --data "{}" || true
-            echo "relay endpoint is up (403 on bad sig = intercept is authenticated)"
-            '
+            code=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+              -H "Content-Type: application/json" -H "X-AcreetBoot-Signature: bogus" \
+              --data "{}" http://127.0.0.1:8477/gha || echo curl-err)
+            echo "badsig POST status: $code (expect 403)"
+            [ "$code" = "403" ] && echo "INTERCEPT ALIVE (authenticated)"'
         env:
           SECRET: ${{ secrets.CVM_RELAY_SECRET }}
