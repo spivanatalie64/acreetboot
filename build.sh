@@ -18,7 +18,7 @@ mkdir -p "$BUILD/bin"
 
 echo "==> acreetboot build (host: $(uname -srm))"
 
-for f in grub/grub.cfg sdboot/loader.conf sdboot/10-acreetboot.conf; do
+for f in sdboot/loader.conf sdboot/00-acreetboot-microboot.conf sdboot/10-acreetboot-direct.conf; do
   [ -f "$ROOT/$f" ] || { echo "MISSING: $f"; exit 1; }
 done
 for s in initramfs/init; do bash -n "$ROOT/$s" && echo "ok: bash -n $s"; done

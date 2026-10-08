@@ -5,13 +5,13 @@
  * Runs as pid 1 inside the microbow microkernel (minimal config, built by
  * build.sh -> build/miniboot/vmlinuz-acreetboot). Kernel cmdline includes:
  *   lockdown=confidentiality module.sig_enforce=1 zswap.enabled=1
- * Payload lives on a dedicated GPT partition labelled "ACREETBOOT-ZSWAP"
- * (ext4 filesystem by default), typically booted from GRUB with:
+ * Reached via systemd-boot -> entry 00-acreetboot-microboot.conf, which
+ * loads us from the dedicated XBOOTLDR GPT partition labeled
+ * "ACREETBOOT-ZSWAP" (ext4 by default):
  *   linux  /vmlinuz-acreetboot
  *   initrd /initramfs-acreetboot.cpio.zst
- * (GRUB reads normal ext4; the naming echoes "the compressed payload hop".
- *   It is NOT the Linux zswap runtime feature — this program enables
- *   runtime zswap for the tiny exchange while shutting down.)
+ * (The naming echoes "the compressed payload hop"; it is NOT Linux's
+ *   zswap runtime feature — see docs/plan/00-PLAN.md hardening notes.)
  */
 
 #include <errno.h>
