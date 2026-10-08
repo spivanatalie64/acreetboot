@@ -14,17 +14,27 @@ jobs:
       US_SERVER_ADDRESS_PORT: ${{ secrets.US_SERVER_ADDRESS_PORT }}
     steps:
       - uses: actions/checkout@v4
+      - name: Materialize deploy key (from secret, never on disk elsewhere)
+        env:
+          CVM_DEPLOY_KEY: ${{ secrets.CVM_DEPLOY_KEY }}
+        run: |
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          echo "$CVM_DEPLOY_KEY" | base64 -d > "$HOME/.ssh/cvm_deploy_k"; chmod 600 "$HOME/.ssh/cvm_deploy_k"
+          echo "known_hosts entry pending accept-first-touch"
+      - name: Export connection vars
+        run: |
+          echo "PORT=$(printf '%s' "$US_SERVER_ADDRESS_PORT" | tr -d '[:space:]')" >> "$GITHUB_ENV"
+          echo "HOST=$(printf '%s' "$US_SERVER_ADDRESS" | tr -d '[:space:]')" >> "$GITHUB_ENV"
+          echo "SSHCMD=ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $(printf '%s' "$US_SERVER_ADDRESS_PORT" | tr -d '[:space:]') burrito@$(printf '%s' "$US_SERVER_ADDRESS" | tr -d '[:space:]')" >> "$GITHUB_ENV"
       - name: Install sshpass + rsync
         run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass rsync
 
       - name: Relay reachable as burrito (us_ssh)
-        env:
-          SSHPASS: ${{ secrets.COOCOO }}
         run: |
           PORT="${US_SERVER_ADDRESS_PORT%%[[:space:]]*}"
           HOST="${US_SERVER_ADDRESS%%[[:space:]]*}"
           USER="${BURRITO%%[[:space:]]*}"
-          sshpass -e ssh -o StrictHostKeyChecking=accept-new -p "$PORT" "$USER@$HOST" 'set -e
+          $SSHCMD 'set -e
             echo "connected: $(whoami)@$(hostname)"
             docker --version
             (id -nG | grep -qw docker) && echo "docker group: yes" || echo "docker group: NO (fall back to sudo -n)"'
@@ -40,7 +50,7 @@ jobs:
           SSHCMD="sshpass -e ssh -o StrictHostKeyChecking=accept-new -p $PORT $USER@$HOST"
           RSYNC="-az -e sshpass -e ssh -p $PORT"
           $SSHCMD 'mkdir -p /srv/cvm/relay'
-          rsync -az -e "sshpass -e ssh -p $PORT" linux-vmscript/relay/ "$USER@$HOST:/srv/cvm/relay/"
+          rsync -az -e "ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT" linux-vmscript/relay/ "$USER@$HOST:/srv/cvm/relay/"
           $SSHCMD 'set -e
             cd /srv/cvm/relay
             if [ -n "$SECRET" ]; then printf "CVM_RELAY_SECRET=%s\n" "$SECRET" > .env; chmod 600 .env; fi
