@@ -37,6 +37,8 @@ jobs:
           rsync -az -e "ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT" \
             linux-vmscript/Dockerfile.testbox linux-vmscript/testbox-smoke.sh \
             "$USER@$HOST:/srv/cvm/testbox/"
+          rsync -az -e "ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT" \
+            sdboot "$USER@$HOST:/srv/cvm/testbox/" 
           $SSHCMD 'set -e
             cd /srv/cvm/testbox
             (id -nG | grep -qw docker) && DOCKER=docker || DOCKER="sudo -n docker"
