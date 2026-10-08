@@ -44,6 +44,7 @@ hop (no extra reboot). Recovery shell is `01-acreetboot-recovery.conf`.
 | `build/`     | build outputs (never committed)                              |
 | `docs/`      | boot chain, security model, threat model, plan docs          |
 | `man/`       | man pages                                                    |
+| `linux-vmscript/` | QEMU/OVMF end-to-end test harness (Linux side) |
 | `FreeBSD-vmscript/` | bhyve test harness for non-Linux OS boot testing       |
 
 ## Licensing
@@ -90,4 +91,4 @@ hop (no extra reboot). Recovery shell is `01-acreetboot-recovery.conf`.
 - [ ] 0.4 Microboot stage (config, kernel config, init, BootNext C tool).
 - [ ] 0.5 Manifest sealing (MAC/sign-key) + XBOOTLDR partition tooling.
 - [ ] 0.6 acreetbootctl CLI (`install`/`uninstall` wiring all of the above).
-- [ ] 0.7 bhyve + QEMU end-to-end test harness.
+- [ ] 0.7 End-to-end VM harness: `linux-vmscript/` (QEMU/OVMF) + `FreeBSD-vmscript/` (bhyve). `linux-vmscript/run-vm.sh` stages ESP + XBOOTLDR payload partitions and boots OVMF headless with serial assertions.
