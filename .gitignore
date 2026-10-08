@@ -1,0 +1,15 @@
+build/*
+!build/.gitkeep
+*.efi
+*.so
+*.o
+*.a
+*.tar*
+*.iso
+*.img
+*.zst
+core
+*.log
+vendor/
+.DS_Store
+!build/

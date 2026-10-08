@@ -1,0 +1,94 @@
+#!/bin/busybox sh
+# AcreetBoot — microboot initramfs init (busybox sh, runs as pid 1)
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2026 Natalie Cole-Clift Spiva / AcreetionOS.
+#
+# Job (and NOTHING more):
+#   1. mount the minimal pseudo-fs + efivarfs
+#   2. mount the ACREETBOOT-ZSWAP payload partition read-only
+#   3. verify /payload/manifest.sha256 against the expected hashes
+#   4. set UEFI BootNext to the systemd-boot entry
+#   5. drop mounts, warm reboot
+#
+# Failure behavior: print a short reason and stop (no console debugging
+# unless acreetboot.recover=1 is on the kernel cmdline). No disk writes
+# anywhere except efivarfs BootNext.
+
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+/bin/busybox --install -s /bin
+
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+mount -t efivarfs efivarfs /sys/firmware/efi/efivars
+
+recover=0
+case "$(cat /proc/cmdline)" in
+  *acreetboot.recover=1*) recover=1 ;;
+esac
+
+# Locate the payload partition (label-first; never guess /dev/sdX).
+payload=""
+for cand in /dev/disk/by-partlabel/ACREETBOOT-ZSWAP \
+            /dev/disk/by-label/ACREETBOOT-ZSWAP; do
+  [ -e "$cand" ] && payload="$cand" && break
+done
+if [ -z "$payload" ]; then
+  echo "acreetboot: ACREETBOOT-ZSWAP partition not found."
+  if [ "$recover" = "1" ]; then
+    echo "acreetboot: dropping to recovery shell (busybox)."
+    exec /bin/sh
+  fi
+  poweroff -f
+fi
+
+mkdir -p /payload
+mount -o ro,nosuid,nodev,noexec -t ext4 "$payload" /payload || {
+  echo "acreetboot: cannot mount ACREETBOOT-ZSWAP read-only."
+  if [ "$recover" = "1" ]; then exec /bin/sh; fi
+  poweroff -f
+}
+
+# Manifest verification (advisory only until Secure Boot enrolment lands;
+# see docs/plan/00-PLAN.md milestone 0.5 and docs/security notes).
+if [ -f /payload/manifest.sha256 ]; then
+  cd /payload || exit 1
+  if sha256sum -c manifest.sha256 >/dev/null 2>&1; then
+    echo "acreetboot: manifest verified."
+  else
+    echo "acreetboot: MANIFEST MISMATCH — refusing to set BootNext."
+    cd /
+    umount /payload
+    if [ "$recover" = "1" ]; then exec /bin/sh; fi
+    poweroff -f
+  fi
+  cd /
+else
+  echo "acreetboot: no manifest present; skipping verification (run"
+  echo "           'acreetboot install --remanifest' to seal this hop)."
+fi
+
+# Locate systemd-boot BootXXXX index installed by 'acreetboot install' and
+# stored on the payload as /payload/bootnext.idx (hex text like "0001").
+if [ ! -f /payload/bootnext.idx ]; then
+  echo "acreetboot: /payload/bootnext.idx missing — cannot pick target."
+  if [ "$recover" = "1" ]; then exec /bin/sh; fi
+  poweroff -f
+fi
+
+idx="$(tr -d ' \t\r\n' < /payload/bootnext.idx)"
+case "$idx" in
+  *[!0-9A-Fa-f]*|"") echo "acreetboot: bad bootnext.idx value."; poweroff -f ;;
+esac
+
+/bin/setbootnext "$idx" || { echo "acreetboot: setbootnext failed."; poweroff -f; }
+
+echo "acreetboot: BootNext -> Boot$idx; warm rebooting."
+sync
+umount /sys/firmware/efi/efivars
+umount /payload
+umount /dev 2>/dev/null
+umount /sys 2>/dev/null
+umount /proc 2>/dev/null
+exec /bin/busybox reboot -f
