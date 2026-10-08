@@ -52,5 +52,3 @@ jobs:
               --data "{}" http://127.0.0.1:8477/gha || echo curl-err)
             echo "badsig POST status: $code (expect 403)"
             [ "$code" = "403" ] && echo "INTERCEPT ALIVE (authenticated)"'
-        env:
-          SECRET: ${{ secrets.CVM_RELAY_SECRET }}
