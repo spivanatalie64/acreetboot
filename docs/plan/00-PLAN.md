@@ -27,6 +27,27 @@ Fast path (optional): the `10-acreetboot-direct.conf` systemd-boot entry
 chainloads `AcreetBootMainMenu.efi` directly and skips the micro-integrity
 hop (no extra reboot). Recovery shell is `01-acreetboot-recovery.conf`.
 
+### Why it is shaped this way
+
+- **systemd-boot sole first stage:** a minimal, vendor-maintained binary
+  with no embedded interpreter, no edit console, no module soup — the
+  slim attack surface we actually want, and the foundation acreetboot
+  builds ABOVE rather than a bootloader we beta-sit inside.
+- **`BootNext` is the only correct Linux → EFI-app hop:** a running
+  Linux cannot directly launch an EFI binary; UEFI `BootNext` + warm
+  reboot is the standard mechanism (systemd itself uses it). We use it
+  deliberately so the microkernel can *verify before chainloading*.
+- **Payload on a separate XBOOTLDR partition:** sd-boot reads kernels
+  from ESP or XBOOTLDR natively; keeping the microboot payload on a
+  labeled non-ESP partition means the verifying stage cannot be silently
+  rewritten by anything that only has the ESP.
+- **Polish lives at ONE layer:** the picker is `AcreetBootMainMenu.efi`
+  (BSD-3, bounded config via manifests) — multi-OS choice gets the nice
+  UX without inheriting the interpretive complexity GRUB would drag in.
+- **Honestness about the cost:** hardened mode pays one extra firmware
+  cycle per boot. That is the whole tradeoff, and it is a first-class
+  menu choice, never a hidden default.
+
 ## Layout
 
 | dir          | what lives here                                             |

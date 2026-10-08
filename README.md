@@ -36,6 +36,39 @@ A `fast path` entry (`10-acreetboot-direct.conf`) chainloads
 a recovery entry (`01-acreetboot-recovery.conf`) drops to a busybox shell
 inside the microboot with `acreetboot.recover=1`.
 
+### Why this chain and not a stuck-on-GRUB variant
+
+- **systemd-boot as the sole first stage.** GRUB is a feature-rich
+  interpreter — modules, scriptlets, edit consoles — and every one of
+  those is attack surface and a config-drain surface. sd-boot does one
+  job (boot the entry we ship), is maintained by the distro/vendor as a
+  binary (no embedded `.cfg` interpreter we must pin), has no interactive
+  editor, and is the path forward for Secure Boot tooling. We build ON
+  it rather than beside it.
+- **microboot before any chainload.** From running Linux you cannot
+  directly launch an EFI app — the only correct hop is the UEFI
+  `BootNext` variable plus a warm reboot (the same mechanism systemd
+  itself uses). So the microkernel's stage is: verify the payload
+  manifest, write `BootNext`, reboot. In exchange we get an
+  authenticity gate BEFORE `AcreetBootMainMenu.efi` ever runs, with the
+  microkernel itself running `lockdown=confidentiality` +
+  `module.sig_enforce=1` — the most hardened code in the chain.
+- **Payload lives on its own XBOOTLDR partition (ACREETBOOT-ZSWAP).**
+  systemd-boot only reads kernels from ESP or XBOOTLDR, so the payload
+  partition is natively reachable with zero GRUB-style fs gymnastics —
+  and it is NOT the ESP, so a compromised/rewritable ESP never
+  silently replaces the verification stage itself.
+- **Warm reboot is the honest cost.** The microkernel boots in a
+  couple of seconds; we pay one firmware cycle per boot for a
+  verify-before-chainload chain that GRUB/VFAT root kits have a much
+  harder time crossing. Devices where seconds matter use the fast
+  path — an explicit, visible entry, not a hidden default.
+- **Loader-compiled for one picker.** All OS choice lives in
+  `AcreetBootMainMenu.efi` (our BSD-3 code, one bounded config source,
+  manifest-verified) instead of being split between GRUB scriptlets and
+  whatever os-prober guessed — auditable, uniform, and portable to other
+  AcreetionOS editions.
+
 ## Repository map
 
 - `efi/acreetbootdrv/` — our UEFI boot-manager (menu entry supplier).
