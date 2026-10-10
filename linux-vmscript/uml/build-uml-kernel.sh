@@ -27,8 +27,10 @@ for cand in "$ROOT"/linux-vmscript/uml/kernel-config.uml.frag \
 done
 [ -n "$FRAG" ] || { echo "UML config fragment not found (looked in $ROOT)"; exit 4; }
 scripts/kconfig/merge_config.sh -m .config "$FRAG"
-yes "" | make ARCH=um olddefconfig
-JOBS="${JOBS:-$(nproc)}"
+make ARCH=um olddefconfig  # olddefconfig is promptless for defconfig baselines
+# nproc can report absurd numbers under containerized hosts (we saw 65536)
+# and meta-make then stalls or OOMs; cap jobs to something sane.
+JOBS="${JOBS:-$(( $(nproc) < 64 ? $(nproc) : 64 ))}"
 if make -j"$JOBS" ARCH=um >"$OUT/build.log" 2>&1; then
   :  # output binary is ./linux
 else
