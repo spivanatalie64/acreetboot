@@ -1,0 +1,53 @@
+# AcreetBoot — UML microboot-lane boot test on us_ssh (software hypervisor)
+# SPDX-License-Identifier: BSD-3-Clause
+name: uml-boot-test
+on:
+  workflow_dispatch:
+
+jobs:
+  uml-boot:
+    runs-on: ubuntu-latest
+    env:
+      US_SERVER_ADDRESS: ${{ secrets.US_SERVER_ADDRESS }}
+      US_SERVER_ADDRESS_PORT: ${{ secrets.US_SERVER_ADDRESS_PORT }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Materialize deploy key (from secret)
+        env:
+          CVM_DEPLOY_KEY: ${{ secrets.CVM_DEPLOY_KEY }}
+        run: |
+          mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+          echo "$CVM_DEPLOY_KEY" | base64 -d > "$HOME/.ssh/cvm_deploy_k"; chmod 600 "$HOME/.ssh/cvm_deploy_k"
+
+      - name: Stage UML lane bits
+        run: |
+          PORT="$(printf '%s' "$US_SERVER_ADDRESS_PORT" | tr -d '[:space:]')"
+          HOST="$(printf '%s' "$US_SERVER_ADDRESS" | tr -d '[:space:]')"
+          SSHCMD="ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT burrito@$HOST"
+          $SSHCMD 'mkdir -p /srv/cvm/uml/src'
+          rsync -az -e "ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT" \
+            linux-vmscript/uml/initramfs/init "$HOST:/srv/cvm/uml/src/initramfs-init"
+          rsync -az -e "ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT" \
+            linux-vmscript/uml/ "$HOST:/srv/cvm/uml/src/"
+
+      - name: Build (or reuse) UML microboot kernel on us_ssh
+        run: |
+          PORT="$(printf '%s' "$US_SERVER_ADDRESS_PORT" | tr -d '[:space:]')"
+          HOST="$(printf '%s' "$US_SERVER_ADDRESS" | tr -d '[:space:]')"
+          SSHCMD="ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -o ServerAliveInterval=30 -p $PORT burrito@$HOST"
+          $SSHCMD 'bash -l -c "
+            cd /srv/cvm/uml
+            if [ -x uml-microboot/uml-microboot ] && [ -n \"$(find uml-microboot/uml-microboot -newer src/kernel-config.uml.frag 2>/dev/null)\" ]; then
+              echo \"kernel cached; skipping build\"
+            else
+              bash src/build-uml-kernel.sh
+            fi
+            uml-microboot/uml-microboot --help 2>/dev/null | head -2 || echo \"(no --help yet, bool ok)\"
+          "'
+
+      - name: Boot test — microboot init logic under UML
+        run: |
+          PORT="$(printf '%s' "$US_SERVER_ADDRESS_PORT" | tr -d '[:space:]')"
+          HOST="$(printf '%s' "$US_SERVER_ADDRESS" | tr -d '[:space:]')"
+          SSHCMD="ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT burrito@$HOST"
+          $SSHCMD 'cd /srv/cvm/uml && bash src/run-uml-boottest.sh'

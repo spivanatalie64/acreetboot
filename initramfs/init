@@ -24,13 +24,19 @@ mount -t devtmpfs devtmpfs /dev
 mount -t efivarfs efivarfs /sys/firmware/efi/efivars
 
 recover=0
-case "$(cat /proc/cmdline)" in
-  *acreetboot.recover=1*) recover=1 ;;
-esac
+acreetboot_payload=""
+for arg in $(cat /proc/cmdline); do
+  case "$arg" in
+    acreetboot.recover=1) recover=1 ;;
+    acreetboot.payload=*) acreetboot_payload="${arg#*=}" ;;
+  esac
+done
 
 # Locate the payload partition (label-first; never guess /dev/sdX).
+# payload precedence: explicit cmdline override (UML ubd* lanes) > labels
 payload=""
-for cand in /dev/disk/by-partlabel/ACREETBOOT-ZSWAP \
+for cand in ${acreetboot_payload:+$acreetboot_payload} \
+            /dev/disk/by-partlabel/ACREETBOOT-ZSWAP \
             /dev/disk/by-label/ACREETBOOT-ZSWAP; do
   [ -e "$cand" ] && payload="$cand" && break
 done
