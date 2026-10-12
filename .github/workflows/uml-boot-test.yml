@@ -21,6 +21,7 @@ jobs:
 
       - name: Build static setbootnext (for UML rootfs)
         run: |
+          mkdir -p /tmp/opencode
           gcc -static -O2 -std=c99 -Wall -Wextra -DPOSIX_C_SOURCE=200809L \
             -o /tmp/opencode/setbootnext-static c/setbootnext.c
           file /tmp/opencode/setbootnext-static
