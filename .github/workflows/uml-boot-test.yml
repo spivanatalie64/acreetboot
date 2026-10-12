@@ -24,11 +24,12 @@ jobs:
           PORT="$(printf '%s' "$US_SERVER_ADDRESS_PORT" | tr -d '[:space:]')"
           HOST="$(printf '%s' "$US_SERVER_ADDRESS" | tr -d '[:space:]')"
           SSHCMD="ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT burrito@$HOST"
+          RSYNC_E="ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT"
           $SSHCMD 'mkdir -p /srv/cvm/uml/src'
-          rsync -az -e "ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT" \
-            linux-vmscript/uml/initramfs/init "$HOST:/srv/cvm/uml/src/initramfs-init"
-          rsync -az -e "ssh -i $HOME/.ssh/cvm_deploy_k -o StrictHostKeyChecking=accept-new -p $PORT" \
-            linux-vmscript/uml/ "$HOST:/srv/cvm/uml/src/"
+          rsync -az -e "$RSYNC_E" \
+            initramfs/init "burrito@$HOST:/srv/cvm/uml/src/initramfs-init"
+          rsync -az -e "$RSYNC_E" \
+            linux-vmscript/uml/ "burrito@$HOST:/srv/cvm/uml/src/"
 
       - name: Build (or reuse) UML microboot kernel on us_ssh
         run: |
