@@ -29,11 +29,30 @@
 /* Menu entry model. Internal representation deliberately matches what
  * acreetbootctl installs into /acreetboot/manifests so the source of truth
  * is always the signed manifest, never a runtime guess.
+ *
+ * OS-family matrix (see docs/plan/00-PLAN.md + issues #2, #3):
+ *   Linux        — LoadImage a vmlinuz/UKI directly.
+ *   Windows      — dispatch via WanBoot.efi: a Linux-KVM host boots the
+ *                  official Windows boot files (bootmgfw.efi / winload.efi)
+ *                  as a KVM guest. WanBoot.efi lives at \EFI\acreetboot\,
+ *                  NOT under \EFI\Microsoft\Boot\, so Windows Update can
+ *                  never overwrite the host chain. Windows is the guest;
+ *                  the host EFI chain is entirely AcreetionOS-owned.
+ *   BSD          — chainload a BSD-family EFI loader (FreeBSD loader.efi,
+ *                  OpenBSD BOOTX64.EFI, NetBSD bootx64.efi); ZFS boot-
+ *                  environment aware.
+ *   Multiboot    — direct multiboot2 hand-off (GNU Hurd, illumos-direct):
+ *                  load kernel + module list, build MB2 info struct, jump.
+ *   Efi          — generic chainload of a bare .efi (macOS, other loaders).
+ *   Grub         — GRUB chainload fallback (GNU/Hurd classic, Guix).
  */
 typedef enum {
   EntryKindLinux,
-  EntryKindEfi,
-  EntryKindGrub,
+  EntryKindWindows,    /* WanBoot.efi → Linux-KVM host → Windows guest   */
+  EntryKindBsd,        /* chainload BSD loader.efi / BOOTX64.EFI         */
+  EntryKindMultiboot,  /* direct multiboot2 (Hurd, illumos-direct)       */
+  EntryKindEfi,        /* generic .efi chainload (macOS, other)          */
+  EntryKindGrub,       /* GRUB chainload fallback (GNU/Hurd, Guix)       */
   EntryKindSeparator,
 } AcreetEntryKind;
 
@@ -42,7 +61,14 @@ typedef struct {
   CHAR16        *Kernel;         /* for EntryKindLinux: /boot/vmlinuz-… */
   CHAR16        *Initrd;
   CHAR16        *Cmdline;
-  CHAR16        *EfiFile;        /* for EntryKindEfi/Grub: path to .efi   */
+  CHAR16        *EfiFile;        /* for Efi/Bsd/Grub: path to .efi to chainload */
+  CHAR16        *WanBootKernel;  /* for EntryKindWindows: KVM-host Linux kernel */
+  CHAR16        *WanBootInitrd;  /* for EntryKindWindows: KVM-host initramfs    */
+  CHAR16        *GuestFw;        /* for EntryKindWindows: OVMF firmware for guest */
+  CHAR16        *WinPartition;   /* for EntryKindWindows: Windows boot partition */
+  CHAR16        *Passthrough;    /* for EntryKindWindows: VFIO profile or "virtio" */
+  CHAR16        *MbModules;      /* for EntryKindMultiboot: module list (Hurd)   */
+  CHAR16        *ZfsBe;          /* for EntryKindBsd: ZFS boot environment name  */
   AcreetEntryKind Kind;
   BOOLEAN        Auxiliary;      /* hidden until "show all" is toggled   */
 } AcreetMenuEntry;

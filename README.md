@@ -10,7 +10,10 @@ module signature enforcement, loaded from a dedicated XBOOTLDR partition,
 which verifies the payload manifest and hands off to our own **BSD-3**
 UEFI boot manager (`AcreetBootMainMenu.efi`, built on the EDK II scaffold)
 to present one polished picker for multiple operating systems — Linux,
-Windows, macOS-with-opt-in-Apple-parts, and bare `.efi` loaders.
+Windows (via WanBoot.efi — a Linux-KVM host that boots the official
+Windows files as a guest so Windows Update can never overwrite the chain),
+BSD, GNU/Hurd, OpenSolaris/illumos, macOS-with-opt-in-Apple-parts, and
+bare `.efi` loaders.
 
 We deliberately ship **zero OpenCore binaries** and **zero OpenCore code**;
 `docs/plan/00-PLAN.md` documents our re-implementation of the *architecture*
@@ -28,7 +31,8 @@ UEFI firmware
             runtime zswap=zstd, ESP mounted read-only in the stage)
            └─ manifest-verify → write UEFI BootNext → warm reboot
                 └─ /EFI/acreetboot/AcreetBootMainMenu.efi
-                    └─ multi-OS picker (Linux / Windows / macOS / other .efi)
+                    └─ multi-OS picker (Linux / Windows-via-WanBoot /
+                       BSD / Hurd / illumos / macOS / other .efi)
 ```
 
 A `fast path` entry (`10-acreetboot-direct.conf`) chainloads
@@ -68,12 +72,23 @@ inside the microboot with `acreetboot.recover=1`.
   manifest-verified) instead of being split between GRUB scriptlets and
   whatever os-prober guessed — auditable, uniform, and portable to other
   AcreetionOS editions.
+- **Windows via WanBoot.efi, not via `bootmgfw.efi`.** Windows Update
+  overwrites `\EFI\Microsoft\Boot\bootmgfw.efi` and resets UEFI NVRAM
+  `BootOrder`/`BootNext` on every feature update — any chain that
+  touches the Microsoft ESP path breaks. WanBoot.efi lives at
+  `\EFI\acreetboot\` (a path Windows does not know about), boots a
+  minimal Linux environment, brings up KVM, and launches the official
+  Windows boot files as a **guest**. Windows validates its own Secure
+  Boot chain inside the VM; the host EFI chain is entirely
+  AcreetionOS-owned and Windows can never overwrite it.
 
 ## Repository map
 
 - `efi/acreetbootdrv/` — our UEFI boot-manager (menu entry supplier).
 - `efi/edk2/` — vendored EDK II scaffold for building the `.efi` binaries.
 - `efi/miniboot/` — microboot kernel config + initramfs payload sources.
+- `efi/wanboot/` — WanBoot: KVM-host Linux kernel + initramfs that launches
+  Windows as a KVM guest using its official boot files (overwrite-immune).
 - `sdboot/` — systemd-boot `loader.conf` + entry templates (microboot default).
 - `acreetbootctl/` — setup CLI (`status`, `plan`; `install`/`uninstall` next).
 - `c/` — userspace C: `bootstage.c` (microboot init), `setbootnext.c`

@@ -19,13 +19,45 @@ UEFI firmware
                  └─ UEFI firmware (consumes BootNext)
                       └─ /EFI/acreetboot/AcreetBootMainMenu.efi
                            ├─ kernel scanner (Linux / Windows / macOS /
-                           │  / other .efi)
-                           └─ boots the choice
+                           │  BSD / GNU-Hurd / illumos / other .efi)
+                           └─ boots the choice:
+                                ├─ Linux      → LoadImage vmlinuz/UKI
+                                ├─ Windows    → WanBoot.efi (see below)
+                                ├─ BSD        → chainload loader.efi / BOOTX64.EFI
+                                ├─ Hurd       → multiboot2 direct (Mach + servers)
+                                ├─ illumos    → chainload loader64.efi or multiboot2
+                                ├─ macOS      → chainload .efi (opt-in Apple parts)
+                                └─ other      → generic .efi chainload
 ```
 
 Fast path (optional): the `10-acreetboot-direct.conf` systemd-boot entry
 chainloads `AcreetBootMainMenu.efi` directly and skips the micro-integrity
 hop (no extra reboot). Recovery shell is `01-acreetboot-recovery.conf`.
+
+### Windows boot path — WanBoot.efi (overwrite-immune)
+
+Windows entries do **not** chainload `\EFI\Microsoft\Boot\bootmgfw.efi`
+directly. Windows Update and feature updates overwrite that file and
+reset UEFI NVRAM `BootOrder` / `BootNext`, breaking any chain that
+touches the Microsoft ESP path. WanBoot.efi removes the fight:
+
+```
+AcreetBootMainMenu.efi
+  └─ (Windows entry picked)
+      └─ WanBoot.efi   (\EFI\acreetboot\WanBoot.efi — AcreetionOS path)
+          └─ Linux microkernel + initramfs (KVM-capable, minimal)
+              └─ KVM guest: official Windows boot files
+                  (bootmgfw.efi → winload.efi → Windows kernel;
+                   Windows validates its own Secure Boot chain inside
+                   the guest; the guest's virtual ESP is the only thing
+                   Windows can ever overwrite)
+```
+
+WanBoot.efi lives under `\EFI\acreetboot\`, not under
+`\EFI\Microsoft\Boot\` — Windows does not know this path exists. The
+host EFI chain (sd-boot → microboot → AcreetBootMainMenu → WanBoot) is
+entirely AcreetionOS-owned. Windows runs as a KVM guest using its own
+official, unmodified boot files. See issue #3.
 
 ### Why it is shaped this way
 
@@ -53,6 +85,7 @@ hop (no extra reboot). Recovery shell is `01-acreetboot-recovery.conf`.
 | dir          | what lives here                                             |
 |--------------|-------------------------------------------------------------|
 | `efi/miniboot` | GUard-mode microboot kernel config + initramfs source      |
+| `efi/wanboot` | WanBoot: KVM-host Linux kernel config + initramfs (Windows-guest launcher) |
 | `efi/edk2`    | vendored/patched EDK2 scaffold (submodule or fetched tarball) |
 | `efi/acreetbootdrv` | our UEFI boot-manager main + kernel scanner (BSD-3)   |
 | `edk2picker` | text picker protocol abstraction shared by the above         |
@@ -107,8 +140,14 @@ hop (no extra reboot). Recovery shell is `01-acreetboot-recovery.conf`.
 - [x] 0.1 Repo scaffold, plan, license, layout, microboot chain glue.
 - [x] 0.1.5 systemd-boot entry set (microboot default, recovery, fast path).
 - [ ] 0.2 EDK2 submodule + first `AcreetBootMainMenu.efi` that boots a single
-      Linux kernel (no picker).
-- [ ] 0.3 Scanner: populate menu from `/loader/entries` + `/boot/vmlinuz-*`.
+      Linux kernel (no picker). [issue #1]
+- [ ] 0.2.5 Multi-OS-family entry model + dispatch: BSD (chainload loader.efi),
+      GNU/Hurd + illumos (multiboot2 direct), GNU fallback (GRUB chainload).
+      Entry struct designed for the full OS matrix. [issue #2]
+- [ ] 0.2.6 WanBoot.efi: Windows boot via Linux-KVM host (overwrite-immune —
+      Windows is a KVM guest, host chain is AcreetionOS-owned). [issue #3]
+- [ ] 0.3 Scanner: populate menu from `/loader/entries` + `/boot/vmlinuz-*`
+      + BSD `loader.conf` + illumos boot environments + Windows BCD.
 - [ ] 0.4 Microboot stage (config, kernel config, init, BootNext C tool).
 - [ ] 0.5 Manifest sealing (MAC/sign-key) + XBOOTLDR partition tooling.
 - [ ] 0.6 acreetbootctl CLI (`install`/`uninstall` wiring all of the above).
