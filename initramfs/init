@@ -20,15 +20,21 @@ export PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
-mount -t devtmpfs devtmpfs /dev
-mount -t efivarfs efivarfs /sys/firmware/efi/efivars
+# Some environments (UML, pre-mounted root setups) already mount devtmpfs;
+# only mount if /dev isn't already populated.
+[ -d /dev/pts ] || mount -t devtmpfs devtmpfs /dev
+# efivarfs only exists on real UEFI; scheduled to be absent under UML.
+[ -d /sys/firmware/efi ] && mount -t efivarfs efivarfs /sys/firmware/efi/efivars
+mount -t tmpfs tmpfs /run
 
 recover=0
 acreetboot_payload=""
+acreetboot_efivars=""
 for arg in $(cat /proc/cmdline); do
   case "$arg" in
     acreetboot.recover=1) recover=1 ;;
     acreetboot.payload=*) acreetboot_payload="${arg#*=}" ;;
+    acreetboot.efivars=*) acreetboot_efivars="${arg#*=}" ;;
   esac
 done
 
@@ -88,11 +94,18 @@ case "$idx" in
   *[!0-9A-Fa-f]*|"") echo "acreetboot: bad bootnext.idx value."; poweroff -f ;;
 esac
 
-/bin/setbootnext "$idx" || { echo "acreetboot: setbootnext failed."; poweroff -f; }
+# efivars directory override: real firmware (default) or an emulated path
+# (UML lane), where setbootnext writes the BootNext variable file, which
+# the UML harness then inspects for its assertions before poweroff.
+BTNEXT_DIR=${acreetboot_efivars:-/sys/firmware/efi/efivars}
+[ -d "$BTNEXT_DIR" ] || mkdir -p "$BTNEXT_DIR"
+/bin/setbootnext --efivars "$BTNEXT_DIR" "$idx" || {
+  echo "acreetboot: setbootnext failed."; poweroff -f;
+}
 
 echo "acreetboot: BootNext -> Boot$idx; warm rebooting."
 sync
-umount /sys/firmware/efi/efivars
+umount /sys/firmware/efi/efivars 2>/dev/null
 umount /payload
 umount /dev 2>/dev/null
 umount /sys 2>/dev/null
