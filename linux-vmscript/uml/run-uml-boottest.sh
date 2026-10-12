@@ -27,7 +27,7 @@ else
 fi
 
 debugfs -R "dump /mnt-efivars/$VARNAME $W/var.out" "$W/probe-root.img" >/dev/null 2>&1
-hex="$(xxd -p "$W/var.out" 2>/dev/null)"
+hex="$(od -A n -t x1 -v "$W/var.out" 2>/dev/null | tr -d ' \n')"
 if [ "$hex" = "070000000200" ]; then
   echo "PASS(bytes): BootNext var content verified on-disk (attrs 0x7, idx 0x0002)"
 else
