@@ -84,8 +84,13 @@ inside the microboot with `acreetboot.recover=1`.
 
 ## Repository map
 
-- `efi/acreetbootdrv/` — our UEFI boot-manager (menu entry supplier).
-- `efi/edk2/` — vendored EDK II scaffold for building the `.efi` binaries.
+- `efi/edk2/AcreetBootPkg/` — our EDK2 package; boot-manager source lives at
+  `efi/edk2/AcreetBootPkg/AcreetMainMenu/AcreetMainMenu.c`.
+- `efi/edk2/` — our `AcreetBootPkg` EDK II package (DSC/INF). EDK II itself is
+  never committed: `tools/edk2-bootstrap.sh` fetches `edk2-stable202608`
+  checksum-pinned into `build/edk2/`, and `tools/edk2-build.sh` compiles +
+  stages `build/efi-output/*.efi`. QEMU/OVMF end-to-end proof of the
+  LoadImage+StartImage hand-off: `test/test_ovmf_boot.sh`.
 - `efi/miniboot/` — microboot kernel config + initramfs payload sources.
 - `efi/wanboot/` — WanBoot: KVM-host Linux kernel + initramfs that launches
   Windows as a KVM guest using its official boot files (overwrite-immune).

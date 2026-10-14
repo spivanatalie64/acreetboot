@@ -8,8 +8,10 @@
 #   2. build the userspace C tools (setbootnext; bootstage links against a
 #      minimal libc userspace later — phase 0.4)
 #   3. run the unit test suite
-# Phases 0.2+ add: efi module compile via EDK2, microkernel kernel build,
-# dist bundle staging. Milestones track in docs/plan/00-PLAN.md.
+# EDK2 EFI modules (milestone 0.2+) are opt-in here (ACREETBOOT_BUILD_EFI=1)
+# so the fast host lane never downloads/builds the firmware toolchain unless
+# asked: tools/edk2-bootstrap.sh (pinned fetch) + tools/edk2-build.sh.
+# The full OVMF smoke test runs via test/run_all.sh when qemu is present.
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,6 +31,11 @@ if command -v gcc >/dev/null; then
   echo "ok: built build/bin/setbootnext"
 else
   echo "no gcc on host; skipping C tools (build will be incomplete)"
+fi
+
+if [ "${ACREETBOOT_BUILD_EFI:-0}" = "1" ]; then
+  "$ROOT/tools/edk2-build.sh"
+  echo "ok: staged build/efi-output/{AcreetMainMenu,AcreetBootStub}.efi"
 fi
 
 test/run_all.sh "$ROOT/build/bin/setbootnext" && echo "ALL TESTS GREEN"

@@ -86,8 +86,8 @@ official, unmodified boot files. See issue #3.
 |--------------|-------------------------------------------------------------|
 | `efi/miniboot` | GUard-mode microboot kernel config + initramfs source      |
 | `efi/wanboot` | WanBoot: KVM-host Linux kernel config + initramfs (Windows-guest launcher) |
-| `efi/edk2`    | vendored/patched EDK2 scaffold (submodule or fetched tarball) |
-| `efi/acreetbootdrv` | our UEFI boot-manager main + kernel scanner (BSD-3)   |
+| `efi/edk2`    | our AcreetBootPkg (DSC/INF); the EDK2 tree itself is fetched + sha256-pinned by `tools/edk2-bootstrap.sh` into build/ (never committed) |
+| `efi/edk2/AcreetBootPkg` | our UEFI boot-manager main (AcreetMainMenu.c) + OVMF payload stub (AcreetBootStub.c), BSD-3 |
 | `edk2picker` | text picker protocol abstraction shared by the above         |
 | `c/`         | userspace C (manifest signer, partlabel stubs, tests shims)   |
 | `sdboot/`    | systemd-boot loader.conf + entries (microboot default) |
@@ -139,8 +139,12 @@ official, unmodified boot files. See issue #3.
 
 - [x] 0.1 Repo scaffold, plan, license, layout, microboot chain glue.
 - [x] 0.1.5 systemd-boot entry set (microboot default, recovery, fast path).
-- [ ] 0.2 EDK2 submodule + first `AcreetBootMainMenu.efi` that boots a single
-      Linux kernel (no picker). [issue #1]
+- [x] 0.2 EDK2 sha256-pinned fetch (stable202608 + brotli + mipisyst submodules)
+      + `AcreetMainMenu.efi` boots a single hardcoded PE32+ payload via
+      LoadImage + StartImage — proven end-to-end in QEMU/OVMF (test/
+      test_ovmf_boot.sh, `ACREET-PAYLOAD-OK` marker). Payload model is
+      PE32+/UKI (firmware LoadImage handles UKIs natively); the OVMF test
+      uses a two-line stub stand-in until a real UKI is staged. [issue #1]
 - [ ] 0.2.5 Multi-OS-family entry model + dispatch: BSD (chainload loader.efi),
       GNU/Hurd + illumos (multiboot2 direct), GNU fallback (GRUB chainload).
       Entry struct designed for the full OS matrix. [issue #2]

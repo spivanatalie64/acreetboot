@@ -1,15 +1,6 @@
-build/*
-!build/.gitkeep
-*.efi
-*.so
-*.o
-*.a
-*.tar*
-*.iso
-*.img
-*.zst
-core
-*.log
-vendor/
-.DS_Store
-!build/
+# AcreetBoot — build artifacts never get committed.
+# build/ holds: EDK2 tree (fetched+checksum-pinned), BaseTools, compiled .efi,
+# OVMF staging images, compiled userspace binaries. All regenerate-able.
+build/
+__pycache__/
+*.pyc
