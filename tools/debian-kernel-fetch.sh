@@ -78,7 +78,9 @@ fi
 echo "ok: sha256 verified against index ($GOT)"
 
 EXTRACT="$DEBROOT/extract"
-if [ ! -s "$DEBROOT/vmlinuz" ]; then
+VMA="$DEBROOT/vmlinuz-acr"
+MODDIR="$DEBROOT/modules-acr"
+if [ ! -s "$VMA" ]; then
   rm -rf "$EXTRACT" && mkdir -p "$EXTRACT"
   bsdtar -xf "$FULL_DEB" -C "$EXTRACT" --include="data.tar.*"
   DATA="$(find "$EXTRACT" -name "data.tar.*" | head -1)"
@@ -86,7 +88,53 @@ if [ ! -s "$DEBROOT/vmlinuz" ]; then
   tar -xf "$DATA" -C "$EXTRACT"
   VK="$(find "$EXTRACT/boot" -name "vmlinuz-*" | head -1)"
   [ -n "$VK" ] || { echo "FATAL: vmlinuz not found in deb" >&2; exit 1; }
-  cp -f "$VK" "$DEBROOT/vmlinuz"
+  # GKI-model artifact name: vmlinuz-acr (replaces the standard kernel name
+  # wherever the chain reads a kernel statically).
+  cp -f "$VK" "$VMA"
+
+  # GKI model: modules-acr tree, with debug blobs stripped at build time.
+  # vmlinuz-acr is NEVER stripped (it is a compressed signed boot artifact;
+  # surgery on it would invalidate the partobj signature). Debug blobs are
+  # kept OUT of the lane anyway: the -dbg package is excluded by the index
+  # filter above.
+  KMOD_VER="$(basename "$(find "$EXTRACT/usr/lib/modules" -mindepth 1 -maxdepth 1 | head -1)")"
+  MODSRC="$EXTRACT/usr/lib/modules/$KMOD_VER"
+  [ -d "$MODSRC" ] || { echo "FATAL: no modules tree in deb" >&2; exit 1; }
+  mkdir -p "$MODDIR"
+  cp -a "$MODSRC/." "$MODDIR/"
+  STRIPPED=0; UNSTRIPPABLE=0
+  while IFS= read -r ko; do
+    tmp="$(mktemp)"
+    rm -f "$tmp"
+    tmpsrc="${ko}.__stripsrc__"; tmpput="${ko}.__stripput__"
+    case "$(basename "$ko")" in
+      *.ko.xz)
+        # GKI strip cycle: decompress -> strip-debug -> recompress, atomic.
+        if xz -d -q -c "$ko" > "$tmpsrc" \
+           && strip --strip-debug "$tmpsrc" \
+           && xz -q -T8 -c "$tmpsrc" > "$tmpput"; then
+          mv "$tmpput" "$ko"
+          STRIPPED=$((STRIPPED + 1))
+        else
+          rm -f "$tmpput"
+          UNSTRIPPABLE=$((UNSTRIPPABLE + 1))
+          echo "gki-strip: skipped $ko" >&2
+        fi
+        rm -f "$tmpsrc"
+        ;;
+      *.ko)
+        if strip --strip-debug "$ko"; then
+          STRIPPED=$((STRIPPED + 1))
+        else
+          UNSTRIPPABLE=$((UNSTRIPPABLE + 1))
+          echo "gki-strip: skipped $ko" >&2
+        fi
+        ;;
+    esac
+    rm -f "$tmp"
+  done < <(find "$MODDIR" -name "*.ko*" -type f)
+  echo "gki-strip: $STRIPPED modules stripped of debuginfo, $UNSTRIPPABLE skipped (xz round-trip honest: filename <-> magic preserved)"
 fi
-printf 'suite=%s\nversion=%s\nsha256=%s\nurl=%s\n' "$SUITE" "$VERSION" "$GOT" "$MIRROR/$URL" > "$DEBROOT/kernel.env"
-echo "fetched: $DEBROOT/vmlinuz ($VERSION) — kernel.env written"
+printf 'suite=%s\nversion=%s\nsha256=%s\nurl=%s\nkernel=vmlinuz-acr\nmodules=modules-acr\nstrip=debuginfo stripped at build time\n' \
+  "$SUITE" "$VERSION" "$GOT" "$MIRROR/$URL" > "$DEBROOT/kernel.env"
+echo "fetched: $VMA ($VERSION), modules-acr — kernel.env written"

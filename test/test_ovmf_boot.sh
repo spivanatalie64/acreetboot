@@ -28,9 +28,10 @@ rm -rf "$STAGE" && mkdir -p "$STAGE"
 cp -f "$OVMF_VARS" "$STAGE/VARS.4m.fd"
 cp -f "$BUILD/efi-output/AcreetMainMenu.efi" "$STAGE/BOOTX64.EFI"
 
-# Payload policy: real Debian-kernel UKI when staged (tools/uki-build.sh),
-# two-line stub otherwise. Hand-off proof is the same either way.
-UKI_EFI="$(ls -v "$BUILD/ukistage/EFI/Linux/"debian-*.efi 2>/dev/null | tail -n 1 || true)"
+# Payload policy: real UKI when staged (acr-* GKI stage lane or debian-*
+# install lane), two-line stub otherwise. Hand-off proof is the same either
+# way; the GKI lane also runs OUR initramfs /init inside the kernel.
+UKI_EFI="$(ls -v "$BUILD/ukistage/EFI/Linux/"acr-*.efi "$BUILD/ukistage/EFI/Linux/"debian-*[0-9].efi 2>/dev/null | tail -n 1 || true)"
 if [ -n "$UKI_EFI" ]; then
   cp -f "$UKI_EFI" "$STAGE/vmtest.efi"
   PAYLOAD_KIND="UKI ($(basename "$UKI_EFI"))"
@@ -78,7 +79,11 @@ echo "---------------------------------------"
 
 if [ -n "${UKI_EFI:-}" ]; then
   if grep -aq "Linux version" "$SERIAL"; then
-    echo "OVMF SMOKE: GREEN — real-kernel hand-off proven ($PAYLOAD_KIND)"
+    if grep -aq "acreet-boot" "$SERIAL"; then
+      echo "OVMF SMOKE: GREEN — kernel + OUR initramfs /init both ran ($PAYLOAD_KIND)"
+    else
+      echo "OVMF SMOKE: GREEN — real-kernel hand-off proven ($PAYLOAD_KIND; kernel spoke, acreetboot /init banner absent — check initramfs lane)"
+    fi
     exit 0
   else
     echo "OVMF SMOKE: RED — UKI staged but kernel never spoke on serial"

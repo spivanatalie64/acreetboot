@@ -55,15 +55,17 @@ fi
 
 $SUDO mkdir -p "$EFI_DEST"
 
-echo "=== Kernel selection (stable = Debian) ==="
-# Priority 1: the fetched, index-verified Debian kernel (build/debian lane).
+echo "=== Kernel selection (stable = Debian, GKI-model shapes) ==="
+# Priority 1: vmlinuz-acr — the index-verified Debian kernel, GKI-named to
+# replace the standard kernel name anywhere the chain reads a kernel
+# statically (acreetbootctl/manifests reference it as vmlinuz-acr).
 KERNEL_VERSION=""
 LATEST_VMLINUZ=""
-if [ -s "$DEBROOT/vmlinuz" ] && [ -f "$DEBROOT/kernel.env" ]; then
-  LATEST_VMLINUZ="$DEBROOT/vmlinuz"
+if [ -s "$DEBROOT/vmlinuz-acr" ] && [ -f "$DEBROOT/kernel.env" ]; then
+  LATEST_VMLINUZ="$DEBROOT/vmlinuz-acr"
   KERNEL_VERSION="$(sed -n 's/^version=//p' "$DEBROOT/kernel.env")"
-  INITRD_POLICY="none"
-  echo "lane:    Debian stable kernel (index-verified $DEBROOT lane)"
+  INITRD_POLICY="acr-initialized"
+  echo "lane:    Debian stable kernel, GKI-model (vmlinuz-acr, modules-acr stripped)"
 elif compgen -G "/boot/initrd.img-*" >/dev/null; then
   # Debian host: native /boot/. Steps and paths exactly as prescribed.
   LATEST_VMLINUZ="$(ls -v /boot/vmlinuz-* | tail -n 1)"
@@ -121,17 +123,22 @@ else
   OS_RELEASE_OUT="${OS_RELEASE:-/usr/lib/os-release}"
 fi
 
-if [ -n "${LATEST_INITRD:-}" ] && [ -n "$LATEST_INITRD" ]; then
-  INITRD_ARG="--initrd=$LATEST_INITRD"
-  OUTPUT_EFI="${EFI_DEST}/debian-${KERNEL_VERSION}.efi"
+if [ "$MODE" = "stage" ]; then
+  # GKI-model: import OUR initramfs (static bootstage /init) inside the
+  # UKI at build time. Receipt chain: kernel.env -> initramfs.env -> uki.env.
+  "$ROOT/tools/initramfs-build.sh" >/dev/null
+  ACR_INITRD="$BUILD/ukistage/initramfs-acr.cpio.gz"
+  [ -s "$ACR_INITRD" ] || { echo "FATAL: initramfs build produced nothing" >&2; exit 1; }
+  INITRD_ARG="--initrd=$ACR_INITRD"
+  OUTPUT_EFI="${EFI_DEST}/acr-${KERNEL_VERSION}.efi"
 else
   INITRD_ARG=""
-  OUTPUT_EFI="${EFI_DEST}/debian-${KERNEL_VERSION}-noinitrd.efi"
+  OUTPUT_EFI="${EFI_DEST}/debian-${KERNEL_VERSION}.efi"
 fi
 
 echo "=== Building UKI (systemd-ukify) ==="
 echo "Kernel:      $LATEST_VMLINUZ"
-echo "Initrd:      ${LATEST_INITRD:-<none — hand-off lane>}"
+echo "Initrd:      ${ACR_INITRD:-$LATEST_INITRD} (+${INITRD_POLICY})"
 echo "Cmdline:     $(cat "$KERNEL_CMDLINE")"
 echo "OS release:  $OS_RELEASE_OUT"
 echo "Output path: $OUTPUT_EFI"
@@ -145,8 +152,17 @@ ukify build \
     --output="$OUTPUT_EFI"
 
 echo "ok: UKI created at $OUTPUT_EFI"
-# Only the .osrel needs to survive; keep the effective one around for tests.
-printf '%s\n' "$OUTPUT_EFI_FINAL" > "$BUILD/ukistage/latest.efi.path" 2>/dev/null || true
+# Keep the effective output path for downstream lanes (e.g. the OVMF test).
+printf '%s\n' "$OUTPUT_EFI" > "$BUILD/ukistage/latest.efi.path"
+# GKI build receipts: what is inside the UKI, hashable, reproducible.
+UKI_SHA="$(sha256sum "$OUTPUT_EFI" | awk '{printf "%s", $1}')"
+printf 'mode=%s\nkernel=%s\nkernelVersion=%s\nkernelLane=%s\ninitrd=%s\ninitrdSha256=%s\ncmdline=%s\nuki=%s\nukiSha256=%s\n' \
+  "$MODE" "$LATEST_VMLINUZ" "$KERNEL_VERSION" \
+  "$([ -f "$DEBROOT/kernel.env" ] && echo "vmlinuz-acr(gki-debian)" || echo "$INITRD_POLICY")" \
+  "${ACR_INITRD:-$LATEST_INITRD}" \
+  "$( [ -n "${ACR_INITRD:-}" ] && sha256sum "$ACR_INITRD" | awk '{printf "%s", $1}' || echo "-")" \
+  "$(tr '\n' ' ' < "$KERNEL_CMDLINE" | sed 's/ $//')" \
+  "$(basename "$OUTPUT_EFI")" "$UKI_SHA" > "$BUILD/ukistage/uki.env"
 if [ "$MODE" = "install" ]; then
   echo "[*] Add to UEFI boot entries with efibootmgr if needed."
 fi

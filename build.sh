@@ -47,4 +47,13 @@ if [ "${ACREETBOOT_BUILD_UKI:-0}" = "1" ]; then
   echo "ok: staged build/ukistage/EFI/Linux/debian-*.efi"
 fi
 
+# CVE scan is a DEFAULT build phase (recorded decision): CISA-published KEV
+# feed + catalog page, receipts + report under build/cve/. Explicit bypass
+# (offline builds only) sets ACREETBOOT_CVE_SCAN=0 and the skip is logged.
+if [ "${ACREETBOOT_CVE_SCAN:-1}" = "1" ]; then
+  python3 "$ROOT/tools/cve-scan.py"
+else
+  echo "CVE-SCAN: skipped by explicit ACREETBOOT_CVE_SCAN=0 (build runs WITHOUT the CISA signal this round)"
+fi
+
 test/run_all.sh "$ROOT/build/bin/setbootnext" && echo "ALL TESTS GREEN"

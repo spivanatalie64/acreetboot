@@ -7,21 +7,38 @@ scanning + picker UX) with our own code, and ship zero OpenCore binaries.
 
 ## Kernel / UKI lane (decision recorded)
 
-- **Stable boot kernel = Debian kernel** (suite `trixie` by default),
-  fetched from the *signed pool* and sha256-verified against the
-  deb.debian.org index before any use (`tools/debian-kernel-fetch.sh`).
-  Debian owns kernel maintenance; UKI packaging, manifests and AcreetBoot
-  glue are ours.
-- The prescribed UKI producer (ukify: `--linux --initrd --cmdline --os-release`)
-  lives at `tools/uki-build.sh`. On a Debian target system run it with
-  `ACREETBOOT_UKI_INSTALL=1` (verbatim `/boot/efi/EFI/Linux` +
-  `/etc/kernel/cmdline` behavior). On the build box it stages out-of-tree
-  under `build/ukistage/`.
-- AOSP/GKI lane: parked. Verified live that Google publishes GKI boot.img
-  / bzImage artifacts (Android boot v4 header, Google-certified quarterly
-  releases) but NOT UKIs, and the GKI x86_64 LTS defconfigs do not set
-  `CONFIG_EFI_STUB` (android-mainline does). Not needed now that the lane
-  is Debian stable.
+- **Stable boot kernel = Debian (GKI model over a Debian kernel).** Google's
+  GKI *model* — kernel image + separate modules tree, no device bits — is
+  applied to the Debian lane: the fetched, sha256-index-verified kernel is
+  `build/debian/vmlinuz-acr` (the name every static reader in the chain
+  uses instead of the standard kernel name), and its module forest is
+  staged as `build/debian/modules-acr`. Debian owns kernel maintenance;
+  UKI packaging, manifests and AcreetBoot glue are ours.
+- **Build-time discipline on every GKI/U components build**:
+  1. initramfs imported INSIDE the UKI at build time
+     (`tools/initramfs-build.sh`: `c/bootstage.c` compile static →
+     cpio newc gzip-9 → `.initrd`), the chain artifacts ship with the
+     kernel, not beside it;
+  2. debugging blobs stripped at build time (`modules-acr`: `strip
+     --strip-debug` per module through an honest xz decompress/recompress;
+     4229/4229 stripped, 0 skipped at time of record; the kernel image
+     itself is never touched — it is a compressed, signature-carrying
+     boot artifact).
+- UKI producer: `tools/uki-build.sh` (stage lane: `build/ukistage`, output
+  `acr-<ver>.efi` + receipt `uki.env`; install lane on a Debian target:
+  verbatim `/boot/efi/EFI/Linux` + `/etc/kernel/cmdline` per the
+  prescribed script, output `debian-<ver>.efi`).
+- **CVE scan is a default build phase**: `tools/cve-scan.py` reads what
+  CISA publishes (KEV JSON feed = their database, plus the KEV catalog
+  page HTML), writes receipts + reports under `build/cve/`, and fails
+  loudly (exit 2) if CISA can't be reached — zero fake success. KEV lists
+  exploited-in-the-wild CVEs without product versions, so hits are
+  signals to evaluate against Debian's stable patch line, not automatic
+  failures; an explicit offline-only bypass is `ACREETBOOT_CVE_SCAN=0`
+  and it is logged when used.
+- **AOSP is not needed** (dropped from the lane; history keeps the prior
+  receipts: Google publishes GKI boot.img/bzImage, not UKIs; GKI x86_64
+  LTS defconfigs lack CONFIG_EFI_STUB).
 - Chain runtime: port of initramfs chain logic from bash to Lua + the C
   shim (`bootstage.c`) is queued — the security win is getting the trusted
   chain OUT of shell pitfalls (IFS/word-splitting/unquoted expansion),
@@ -159,11 +176,19 @@ official, unmodified boot files. See issue #3.
 
 ## Milestones
 
+- [x] 0.2.2 GKI-model discipline over the Debian lane: `vmlinuz-acr`
+      naming (static kernel reader compatibility), initramfs imported
+      into the UKI at build time (static bootstage /init, cpio+gzip-9),
+      module debuginfo stripped at build time (4229/4229, xz-honest),
+      CISA KEV scan as default build phase (feed + page receipts under
+      build/cve/). OVMF e2e upgraded: kernel AND our /init both proven
+      on serial (`Linux version` + `acreet-boot` banner).
+
 - [x] 0.2.1 UKI lane: Debian stable kernel (index-sha256-verified, signed
       pool) wrapped by ukify; OVMF e2e upgraded — the menu boots the REAL
       kernel (`Linux version` banner asserted on serial, TCG, `-no-reboot`).
       Kernel cmd in e2e starts with `console=ttyS0`; panic-on-noroot is
-      expected and bounded. [kernel lane: debian-6.12.107+deb13-amd64]
+      expected and bounded. Superseded by 0.2.2 GKI-model discipline.
 
 - [x] 0.1 Repo scaffold, plan, license, layout, microboot chain glue.
 - [x] 0.1.5 systemd-boot entry set (microboot default, recovery, fast path).
