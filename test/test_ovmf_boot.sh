@@ -27,20 +27,43 @@ OVMF_VARS="/usr/share/OVMF/x64/OVMF_VARS.4m.fd"
 rm -rf "$STAGE" && mkdir -p "$STAGE"
 cp -f "$OVMF_VARS" "$STAGE/VARS.4m.fd"
 cp -f "$BUILD/efi-output/AcreetMainMenu.efi" "$STAGE/BOOTX64.EFI"
-cp -f "$BUILD/efi-output/AcreetBootStub.efi" "$STAGE/vmtest.efi"
 
-# 16 MiB FAT ESP staged with mtools (no mount loop needed, no root).
+# Payload policy: real Debian-kernel UKI when staged (tools/uki-build.sh),
+# two-line stub otherwise. Hand-off proof is the same either way.
+UKI_EFI="$(ls -v "$BUILD/ukistage/EFI/Linux/"debian-*.efi 2>/dev/null | tail -n 1 || true)"
+if [ -n "$UKI_EFI" ]; then
+  cp -f "$UKI_EFI" "$STAGE/vmtest.efi"
+  PAYLOAD_KIND="UKI ($(basename "$UKI_EFI"))"
+else
+  cp -f "$BUILD/efi-output/AcreetBootStub.efi" "$STAGE/vmtest.efi"
+  PAYLOAD_KIND="stub"
+fi
+
+# ESP sized for the payload: the kernel UKI lane needs ~192 MiB; the stub
+# lane stays happy on 16 MiB.
+if [ -n "${UKI_EFI:-}" ]; then
+  ESP_MB=256
+else
+  ESP_MB=16
+fi
 IMG="$STAGE/esp.img"
-dd if=/dev/zero of="$IMG" bs=1M count=16 status=none
-mformat -i "$IMG" -C -T 16000
+dd if=/dev/zero of="$IMG" bs=1M count="$ESP_MB" status=none
+mformat -i "$IMG" -C -T $((ESP_MB * 1000))
 mmd -i "$IMG" ::/acreetboot ::/acreetboot/boot ::/EFI ::/EFI/BOOT
 mcopy -i "$IMG" "$STAGE/BOOTX64.EFI" ::/EFI/BOOT/BOOTX64.EFI
 mcopy -i "$IMG" "$STAGE/vmtest.efi"     ::/acreetboot/boot/vmtest.efi
 mtype -i "$IMG" ::/acreetboot/boot/vmtest.efi > /dev/null || { echo "FATAL: staging failed" >&2; exit 1; }
 
 SERIAL="$STAGE/serial.log"
-timeout 60 qemu-system-x86_64 \
-  -machine q35 -m 128 -nographic \
+QEMU_EXTRA=()
+if [ -n "${UKI_EFI:-}" ]; then
+  # Kernel lane: not enough stub chatter to care; exit after reboot so we
+  # don't spin in a panic=-1 reboot loop the full 60s.
+  QEMU_EXTRA=(-no-reboot -m 256)
+fi
+timeout 90 qemu-system-x86_64 \
+  -machine q35 -m ${QEMU_MEM:-128} -nographic \
+  ${QEMU_EXTRA[@]+"${QEMU_EXTRA[@]}"} \
   -drive if=pflash,format=raw,file="$OVMF_CODE",readonly=on \
   -drive if=pflash,format=raw,file="$STAGE/VARS.4m.fd" \
   -drive if=none,file="$IMG",format=raw,id=esp \
@@ -49,9 +72,20 @@ timeout 60 qemu-system-x86_64 \
   -serial file:"$SERIAL" \
   < /dev/null > /dev/null 2>&1 || true
 
-echo "---- serial log (AcreetBoot lines) ----"
+echo "---- serial log (payload: $PAYLOAD_KIND) ----"
 grep -aE "AcreetBoot|ACREET" "$SERIAL" | head -20 || { echo "NO AcreetBoot output on serial"; exit 1; }
 echo "---------------------------------------"
+
+if [ -n "${UKI_EFI:-}" ]; then
+  if grep -aq "Linux version" "$SERIAL"; then
+    echo "OVMF SMOKE: GREEN — real-kernel hand-off proven ($PAYLOAD_KIND)"
+    exit 0
+  else
+    echo "OVMF SMOKE: RED — UKI staged but kernel never spoke on serial"
+    tail -40 "$SERIAL"
+    exit 1
+  fi
+fi
 
 grep -aq "ACREET-PAYLOAD-OK" "$SERIAL" && echo "OVMF SMOKE: GREEN — LoadImage+StartImage hand-off proven" || {
   echo "OVMF SMOKE: RED — payload marker missing (menu reached, hand-off did not start)"

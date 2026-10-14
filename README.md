@@ -86,7 +86,10 @@ inside the microboot with `acreetboot.recover=1`.
 
 - `efi/edk2/AcreetBootPkg/` — our EDK2 package; boot-manager source lives at
   `efi/edk2/AcreetBootPkg/AcreetMainMenu/AcreetMainMenu.c`.
-- `efi/edk2/` — our `AcreetBootPkg` EDK II package (DSC/INF). EDK II itself is
+- `tools/` — UKI lane is Debian-kernel-based (`tools/uki-build.sh`,
+  kernel fetched + sha-index-verified by `tools/debian-kernel-fetch.sh`,
+  `ACREETBOOT_BUILD_UKI=1 ./build.sh` stages it; OVMF e2e auto-upgrades
+  to the real kernel when a staged UKI exists). EDK II itself is
   never committed: `tools/edk2-bootstrap.sh` fetches `edk2-stable202608`
   checksum-pinned into `build/edk2/`, and `tools/edk2-build.sh` compiles +
   stages `build/efi-output/*.efi`. QEMU/OVMF end-to-end proof of the

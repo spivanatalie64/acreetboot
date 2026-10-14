@@ -38,4 +38,13 @@ if [ "${ACREETBOOT_BUILD_EFI:-0}" = "1" ]; then
   echo "ok: staged build/efi-output/{AcreetMainMenu,AcreetBootStub}.efi"
 fi
 
+# UKI lane (kernel = Debian stable, index-verified). Opt-in like the EFI
+# phase; test_ovmf_boot.sh automatically upgrades to the real-kernel lane
+# whenever a staged UKI exists.
+if [ "${ACREETBOOT_BUILD_UKI:-0}" = "1" ]; then
+  "$ROOT/tools/debian-kernel-fetch.sh"
+  "$ROOT/tools/uki-build.sh"
+  echo "ok: staged build/ukistage/EFI/Linux/debian-*.efi"
+fi
+
 test/run_all.sh "$ROOT/build/bin/setbootnext" && echo "ALL TESTS GREEN"

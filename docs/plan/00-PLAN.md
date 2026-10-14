@@ -5,6 +5,28 @@ License: BSD-3 (see ../LICENSE). EDK2 is BSD-3/Apache-2 — we clone the
 *architecture* of OpenCore/OpenLinuxBoot (driver model + config + kernel
 scanning + picker UX) with our own code, and ship zero OpenCore binaries.
 
+## Kernel / UKI lane (decision recorded)
+
+- **Stable boot kernel = Debian kernel** (suite `trixie` by default),
+  fetched from the *signed pool* and sha256-verified against the
+  deb.debian.org index before any use (`tools/debian-kernel-fetch.sh`).
+  Debian owns kernel maintenance; UKI packaging, manifests and AcreetBoot
+  glue are ours.
+- The prescribed UKI producer (ukify: `--linux --initrd --cmdline --os-release`)
+  lives at `tools/uki-build.sh`. On a Debian target system run it with
+  `ACREETBOOT_UKI_INSTALL=1` (verbatim `/boot/efi/EFI/Linux` +
+  `/etc/kernel/cmdline` behavior). On the build box it stages out-of-tree
+  under `build/ukistage/`.
+- AOSP/GKI lane: parked. Verified live that Google publishes GKI boot.img
+  / bzImage artifacts (Android boot v4 header, Google-certified quarterly
+  releases) but NOT UKIs, and the GKI x86_64 LTS defconfigs do not set
+  `CONFIG_EFI_STUB` (android-mainline does). Not needed now that the lane
+  is Debian stable.
+- Chain runtime: port of initramfs chain logic from bash to Lua + the C
+  shim (`bootstage.c`) is queued — the security win is getting the trusted
+  chain OUT of shell pitfalls (IFS/word-splitting/unquoted expansion),
+  not "Lua is magic"; Lua needs the C shim for mounts/efivarfs.
+
 ## Boot chain (default, hardened)
 
 ```
@@ -136,6 +158,12 @@ official, unmodified boot files. See issue #3.
 - Does not support Apple's Secure Boot enrolment for v0 — documented future.
 
 ## Milestones
+
+- [x] 0.2.1 UKI lane: Debian stable kernel (index-sha256-verified, signed
+      pool) wrapped by ukify; OVMF e2e upgraded — the menu boots the REAL
+      kernel (`Linux version` banner asserted on serial, TCG, `-no-reboot`).
+      Kernel cmd in e2e starts with `console=ttyS0`; panic-on-noroot is
+      expected and bounded. [kernel lane: debian-6.12.107+deb13-amd64]
 
 - [x] 0.1 Repo scaffold, plan, license, layout, microboot chain glue.
 - [x] 0.1.5 systemd-boot entry set (microboot default, recovery, fast path).
