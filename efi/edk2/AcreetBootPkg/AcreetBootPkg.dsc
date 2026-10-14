@@ -8,7 +8,7 @@
 [Defines]
   PLATFORM_NAME                  = AcreetBootPkg
   PLATFORM_GUID                  = d45789fc-26df-494f-96d7-a1110f1a4ce3
-  PLATFORM_VERSION               = 0.2.0
+  PLATFORM_VERSION               = 0.3.0
   DSC_SPECIFICATION              = 0x00010006
   OUTPUT_DIRECTORY               = $(WORKSPACE)/Build/AcreetBootPkg
   SUPPORTED_ARCHITECTURES        = X64

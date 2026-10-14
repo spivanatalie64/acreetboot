@@ -10,7 +10,7 @@
   BASE_NAME       = AcreetMainMenu
   FILE_GUID       = 469cdeef-311e-4abc-8263-a79cdb815cb5
   MODULE_TYPE     = UEFI_APPLICATION
-  VERSION_STRING  = 0.2.0
+  VERSION_STRING  = 0.3.0
   ENTRY_POINT     = AcreetMainMenuEntry
 
 [Packages]
@@ -26,8 +26,10 @@
 
 [Sources]
   AcreetMainMenu.c
+  ../AcreetTextMenu/AcreetTextMenu.c
 
 [Protocols]
   gEfiSimpleFileSystemProtocolGuid
 
 [Guids]
+  gEfiFileInfoGuid

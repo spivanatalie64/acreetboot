@@ -205,6 +205,12 @@ official, unmodified boot files. See issue #3.
       Windows is a KVM guest, host chain is AcreetionOS-owned). [issue #3]
 - [ ] 0.3 Scanner: populate menu from `/loader/entries` + `/boot/vmlinuz-*`
       + BSD `loader.conf` + illumos boot environments + Windows BCD.
+      PARTIAL (feature/efi-menu, 2026-10-13): `/loader/entries` reader
+      (title/version/linux/initrd/efi/options, fenced, unknown keys
+      deliberately ignored) + shared text TUI `edk2picker/` (systemd-boot
+      clone: `*` default / `>` live, countdown, t-toggle, Esc wait-forever)
+      both OVMF-proven (`test/test_ovmf_menu.sh`, 4/4 harness green).
+      Remaining: BSD/illumos/BCD sources, multi-initrd, cross-volume merge.
 - [ ] 0.4 Microboot stage (config, kernel config, init, BootNext C tool).
 - [ ] 0.5 Manifest sealing (MAC/sign-key) + XBOOTLDR partition tooling.
 - [ ] 0.6 acreetbootctl CLI (`install`/`uninstall` wiring all of the above).

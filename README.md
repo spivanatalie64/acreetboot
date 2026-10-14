@@ -11,9 +11,17 @@ which verifies the payload manifest and hands off to our own **BSD-3**
 UEFI boot manager (`AcreetBootMainMenu.efi`, built on the EDK II scaffold)
 to present one polished picker for multiple operating systems — Linux,
 Windows (via WanBoot.efi — a Linux-KVM host that boots the official
-Windows files as a guest so Windows Update can never overwrite the chain),
+Windows files as a guest so Windows Update can never overwrite the chain;
+standalone successor: [cellboot](https://github.com/spivanatalie64/cellboot)),
 BSD, GNU/Hurd, OpenSolaris/illumos, macOS-with-opt-in-Apple-parts, and
 bare `.efi` loaders.
+
+The picker is the shared **text TUI** (`edk2picker/` spec — a systemd-boot
+interactive-menu clone: `*` default row, `>` live row, countdown, no
+editor): implemented at
+`efi/edk2/AcreetBootPkg/AcreetTextMenu/`, proven end-to-end in
+QEMU/OVMF (`test/test_ovmf_menu.sh`) with real `/loader/entries`
+boot-loader-spec parsing.
 
 We deliberately ship **zero OpenCore binaries** and **zero OpenCore code**;
 `docs/plan/00-PLAN.md` documents our re-implementation of the *architecture*
@@ -124,7 +132,8 @@ cd acreetboot
 
 ## Status
 
-v0 skeleton — chain glue + first-party UEFI boot manager source in place;
-milestones (EDK2 first boot, kernel scanner, manifest sealing, CLI install)
-tracked in `docs/plan/00-PLAN.md`. Owner/Co-Lead: Natalie (AcreetionOS).
-License: BSD-3.
+v0.3 (feature/efi-menu): loader-entries scanner + systemd-boot-clone text
+TUI live and OVMF-proven. Milestones (multi-family dispatch [issue #2],
+WanBoot-in-cellboot [issue #3], full kernel scanning, manifest sealing,
+CLI install) tracked in `docs/plan/00-PLAN.md`. Owner/Co-Lead: Natalie
+(AcreetionOS). License: BSD-3.
