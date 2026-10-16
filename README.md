@@ -11,9 +11,17 @@ which verifies the payload manifest and hands off to our own **BSD-3**
 UEFI boot manager (`AcreetBootMainMenu.efi`, built on the EDK II scaffold)
 to present one polished picker for multiple operating systems — Linux,
 Windows (via WanBoot.efi — a Linux-KVM host that boots the official
-Windows files as a guest so Windows Update can never overwrite the chain),
+Windows files as a guest so Windows Update can never overwrite the chain;
+standalone successor: [cellboot](https://github.com/spivanatalie64/cellboot)),
 BSD, GNU/Hurd, OpenSolaris/illumos, macOS-with-opt-in-Apple-parts, and
 bare `.efi` loaders.
+
+The picker is the shared **text TUI** (`edk2picker/` spec — a systemd-boot
+interactive-menu clone: `*` default row, `>` live row, countdown, no
+editor): implemented at
+`efi/edk2/AcreetBootPkg/AcreetTextMenu/`, proven end-to-end in
+QEMU/OVMF (`test/test_ovmf_menu.sh`) with real `/loader/entries`
+boot-loader-spec parsing.
 
 We deliberately ship **zero OpenCore binaries** and **zero OpenCore code**;
 `docs/plan/00-PLAN.md` documents our re-implementation of the *architecture*
@@ -84,8 +92,20 @@ inside the microboot with `acreetboot.recover=1`.
 
 ## Repository map
 
-- `efi/acreetbootdrv/` — our UEFI boot-manager (menu entry supplier).
-- `efi/edk2/` — vendored EDK II scaffold for building the `.efi` binaries.
+- `efi/edk2/AcreetBootPkg/` — our EDK2 package; boot-manager source lives at
+  `efi/edk2/AcreetBootPkg/AcreetMainMenu/AcreetMainMenu.c`.
+- `tools/` — UKI lane is kernel-of-Debian + GKI-model: kernel fetcher with
+  index sha-verified (`tools/debian-kernel-fetch.sh`) staging
+  `vmlinuz-acr` + `modules-acr` (build-time debuginfo strip),
+  `tools/initramfs-build.sh` imports our initramfs into the UKI at build
+  time, `tools/uki-build.sh` produces `acr-<ver>.efi`,
+  `tools/cve-scan.py` runs the CISA KEV scan (feed + page receipts) as a
+  default build phase, and `ACREETBOOT_BUILD_UKI=1 ./build.sh` stages it;
+  OVMF e2e auto-upgrades to the real kernel when a staged UKI exists. EDK II itself is
+  never committed: `tools/edk2-bootstrap.sh` fetches `edk2-stable202608`
+  checksum-pinned into `build/edk2/`, and `tools/edk2-build.sh` compiles +
+  stages `build/efi-output/*.efi`. QEMU/OVMF end-to-end proof of the
+  LoadImage+StartImage hand-off: `test/test_ovmf_boot.sh`.
 - `efi/miniboot/` — microboot kernel config + initramfs payload sources.
 - `efi/wanboot/` — WanBoot: KVM-host Linux kernel + initramfs that launches
   Windows as a KVM guest using its official boot files (overwrite-immune).
@@ -112,7 +132,8 @@ cd acreetboot
 
 ## Status
 
-v0 skeleton — chain glue + first-party UEFI boot manager source in place;
-milestones (EDK2 first boot, kernel scanner, manifest sealing, CLI install)
-tracked in `docs/plan/00-PLAN.md`. Owner/Co-Lead: Natalie (AcreetionOS).
-License: BSD-3.
+v0.3 (feature/efi-menu): loader-entries scanner + systemd-boot-clone text
+TUI live and OVMF-proven. Milestones (multi-family dispatch [issue #2],
+WanBoot-in-cellboot [issue #3], full kernel scanning, manifest sealing,
+CLI install) tracked in `docs/plan/00-PLAN.md`. Owner/Co-Lead: Natalie
+(AcreetionOS). License: BSD-3.

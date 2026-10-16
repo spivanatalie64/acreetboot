@@ -1,0 +1,20 @@
+## AcreetBootStub.inf — payload stand-in for the 0.2 OVMF smoke test
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2026 Natalie Cole-Clift Spiva / AcreetionOS.
+[Defines]
+  INF_VERSION     = 0x00010005
+  BASE_NAME       = AcreetBootStub
+  FILE_GUID       = eeaa028b-cb54-4fc5-a590-171eb4cf9118
+  MODULE_TYPE     = UEFI_APPLICATION
+  VERSION_STRING  = 0.2.0
+  ENTRY_POINT     = AcreetBootStubEntry
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  UefiApplicationEntryPoint
+  UefiLib
+
+[Sources]
+  AcreetBootStub.c

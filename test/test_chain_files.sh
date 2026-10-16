@@ -5,7 +5,7 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 for f in sdboot/loader.conf sdboot/00-acreetboot-microboot.conf \
          sdboot/01-acreetboot-recovery.conf sdboot/10-acreetboot-direct.conf \
          miniboot/kernel-config.frag initramfs/init \
-         efi/acreetbootdrv/AcreetMainMenu.c c/bootstage.c c/setbootnext.c \
+         efi/edk2/AcreetBootPkg/AcreetMainMenu/AcreetMainMenu.c c/bootstage.c c/setbootnext.c \
          acreetbootctl/acreetbootctl.py docs/plan/00-PLAN.md; do
   [ -s "$root/$f" ] || { echo "MISSING/EMPTY: $f"; exit 1; }
 done

@@ -8,8 +8,10 @@
 #   2. build the userspace C tools (setbootnext; bootstage links against a
 #      minimal libc userspace later — phase 0.4)
 #   3. run the unit test suite
-# Phases 0.2+ add: efi module compile via EDK2, microkernel kernel build,
-# dist bundle staging. Milestones track in docs/plan/00-PLAN.md.
+# EDK2 EFI modules (milestone 0.2+) are opt-in here (ACREETBOOT_BUILD_EFI=1)
+# so the fast host lane never downloads/builds the firmware toolchain unless
+# asked: tools/edk2-bootstrap.sh (pinned fetch) + tools/edk2-build.sh.
+# The full OVMF smoke test runs via test/run_all.sh when qemu is present.
 set -euo pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -29,6 +31,29 @@ if command -v gcc >/dev/null; then
   echo "ok: built build/bin/setbootnext"
 else
   echo "no gcc on host; skipping C tools (build will be incomplete)"
+fi
+
+if [ "${ACREETBOOT_BUILD_EFI:-0}" = "1" ]; then
+  "$ROOT/tools/edk2-build.sh"
+  echo "ok: staged build/efi-output/{AcreetMainMenu,AcreetBootStub}.efi"
+fi
+
+# UKI lane (kernel = Debian stable, index-verified). Opt-in like the EFI
+# phase; test_ovmf_boot.sh automatically upgrades to the real-kernel lane
+# whenever a staged UKI exists.
+if [ "${ACREETBOOT_BUILD_UKI:-0}" = "1" ]; then
+  "$ROOT/tools/debian-kernel-fetch.sh"
+  "$ROOT/tools/uki-build.sh"
+  echo "ok: staged build/ukistage/EFI/Linux/debian-*.efi"
+fi
+
+# CVE scan is a DEFAULT build phase (recorded decision): CISA-published KEV
+# feed + catalog page, receipts + report under build/cve/. Explicit bypass
+# (offline builds only) sets ACREETBOOT_CVE_SCAN=0 and the skip is logged.
+if [ "${ACREETBOOT_CVE_SCAN:-1}" = "1" ]; then
+  python3 "$ROOT/tools/cve-scan.py"
+else
+  echo "CVE-SCAN: skipped by explicit ACREETBOOT_CVE_SCAN=0 (build runs WITHOUT the CISA signal this round)"
 fi
 
 test/run_all.sh "$ROOT/build/bin/setbootnext" && echo "ALL TESTS GREEN"

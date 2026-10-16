@@ -1,0 +1,35 @@
+## AcreetMainMenu.inf — acreetboot boot-manager UEFI application (milestone 0.2)
+# SPDX-License-Identifier: BSD-3-Clause
+# Copyright (c) 2026 Natalie Cole-Clift Spiva / AcreetionOS.
+#
+# The canonical source stays at efi/acreetbootdrv/AcreetMainMenu.c (that is
+# what test/test_chain_files.sh and the docs index it under); this module
+# compiles it into the EDK2 build system via an ascending relative path.
+[Defines]
+  INF_VERSION     = 0x00010005
+  BASE_NAME       = AcreetMainMenu
+  FILE_GUID       = 469cdeef-311e-4abc-8263-a79cdb815cb5
+  MODULE_TYPE     = UEFI_APPLICATION
+  VERSION_STRING  = 0.3.0
+  ENTRY_POINT     = AcreetMainMenuEntry
+
+[Packages]
+  MdePkg/MdePkg.dec
+
+[LibraryClasses]
+  UefiApplicationEntryPoint
+  UefiLib
+  UefiBootServicesTableLib
+  UefiRuntimeServicesTableLib
+  DevicePathLib
+  MemoryAllocationLib
+
+[Sources]
+  AcreetMainMenu.c
+  ../AcreetTextMenu/AcreetTextMenu.c
+
+[Protocols]
+  gEfiSimpleFileSystemProtocolGuid
+
+[Guids]
+  gEfiFileInfoGuid
